@@ -85,7 +85,17 @@ module DE10_LITE_Default(
 	
 );
 
+wire VGA_CTRL_CLK;
+wire spi_clk, spi_clk_out;
 
+wire   [9:0]   mVGA_R;
+wire   [9:0]	mVGA_G;
+wire   [9:0]	mVGA_B;
+wire   [19:0]	mVGA_ADDR;
+wire 				VGA_CLK;
+assign DRAM_DQ 	   =  16'hzzzz;
+assign ARDUINO_IO 	=  16'hzzzz;
+assign VGA_CLK = VGA_CTRL_CLK;
 
 //=======================================================
 //  REG/WIRE declarations
@@ -93,18 +103,9 @@ module DE10_LITE_Default(
 
 
 wire DLY_RST;
-wire VGA_CTRL_CLK;
-
-
-wire   [9:0]   mVGA_R;
-wire   [9:0]	mVGA_G;
-wire   [9:0]	mVGA_B;
-wire   [19:0]	mVGA_ADDR;
-wire 				VGA_CLK;
 
 reg  [31:0]	Cont;
 wire [23:0]	mSEG7_DIG;
-wire	        spi_clk, spi_clk_out;
 wire 			resrt_n;
 wire	[15:0]  data_x;
 
@@ -112,11 +113,8 @@ wire	[15:0]  data_x;
 //  Structural coding
 //=======================================================
 //
-assign DRAM_DQ 	   =  16'hzzzz;
-assign ARDUINO_IO 	=  16'hzzzz;
 assign GPIO		  		=	36'hzzzzzzzz;
 
-assign VGA_CLK = VGA_CTRL_CLK;
 assign resrt_n = KEY[0];
 assign user = KEY[1];
 
@@ -130,7 +128,7 @@ always@(posedge MAX10_CLK2_50) begin
 end
 
 assign mSEG7_DIG = resrt_n
-	? {{5{4'b1000}}, Cont[27:24]}
+	? {{5{4'b1111}}, Cont[27:24]}
 	: {6{4'b1000}}
 ;
 
@@ -149,12 +147,11 @@ SEG7_LUT_6 			u0	(	.oSEG0(HEX0),
 assign usb_dm_in = GPIO[0];
 assign usb_dp_in = GPIO[1];
 
-
 assign usb_data = ~usb_dp_in & usb_dm_in; // full-speed
 assign se0 = ~usb_dp_in & ~usb_dm_in;
 
 reg usb_clk_en;
-reg [2:0] usb_clk_cnt;
+reg [5:0] usb_clk_cnt;
 assign usb_clk = usb_clk_cnt[1] & usb_clk_en;
 
 reg [2:0] usb_state;
@@ -169,7 +166,11 @@ always@ (posedge MAX10_CLK2_50) begin
 		
 	end else begin
 		if(usb_clk_en) begin
-			usb_clk_cnt <= usb_clk_cnt + 1;
+			if(usb_clk_cnt > 48) begin 
+				usb_clk_cnt <= 0;
+			end else begin
+				usb_clk_cnt <= usb_clk_cnt + 1;
+			end
 		end else if(usb_data == 1) begin // TODO
 			usb_clk_en <= 1;
 		end
