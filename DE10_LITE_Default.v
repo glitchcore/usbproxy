@@ -152,47 +152,43 @@ assign se0 = ~usb_dp_in & ~usb_dm_in;
 
 reg usb_clk_en;
 reg [5:0] usb_clk_cnt;
-assign usb_clk = usb_clk_cnt[1] & usb_clk_en;
+assign usb_clk = (usb_clk_cnt[1] & usb_clk_en) | (MAX10_CLK2_50 & ~usb_clk_en);
 
 reg [2:0] usb_state;
-reg [7:0] preamble;
 
 assign GPIO[4:2] = usb_state[2:0];
 
 always@ (posedge MAX10_CLK2_50) begin
-	if(DLY_RST == 1) begin
-		usb_clk_en <= 0;
-		usb_clk_cnt <= 0;
-		
-	end else begin
-		if(usb_clk_en) begin
-			if(usb_clk_cnt > 48) begin 
-				usb_clk_cnt <= 0;
-			end else begin
-				usb_clk_cnt <= usb_clk_cnt + 1;
-			end
-		end else if(usb_data == 1) begin // TODO
-			usb_clk_en <= 1;
+	if(usb_clk_en == 0) usb_clk_cnt <= 0;
+	else begin
+		if(usb_clk_cnt > 48) begin 
+			usb_clk_cnt <= 0;
+		end else begin
+			usb_clk_cnt <= usb_clk_cnt + 1;
 		end
 	end
 end
 
 
+reg [7:0] preamble;
 
 always@ (posedge usb_clk) begin
 	if(DLY_RST == 1) begin
-		usb_state <= 3'h0;
-	
-	end else if (se0 == 1) begin
 		usb_state <= 0;
-	
+		usb_clk_en <= 0;
+		preamble <= 0;
+	end else if (usb_clk_en == 0) begin
+		if(usb_data) usb_clk_en <= 1;
 	end else begin
-		if(usb_state == 0) begin
-			// fill preamble register
-			preamble <= {preamble[6:0], usb_data};
-			if(preamble == 8'b01010101) begin
-				usb_state <= 1;
-			end
+		// fill preamble register
+		preamble <= {preamble[6:0], usb_data};
+		if(preamble == 8'b10101011) begin
+			usb_state <= 1;
+		end
+		
+		if(se0 == 1) begin
+			usb_state <= 0;
+			usb_clk_en <= 0;
 		end
 	end
 end
