@@ -150,16 +150,13 @@ assign usb_dp_in = GPIO[1];
 assign usb_data = ~usb_dp_in & usb_dm_in; // full-speed
 assign se0 = ~usb_dp_in & ~usb_dm_in;
 
-reg usb_clk_en;
-reg [5:0] usb_clk_cnt;
-assign usb_clk = (usb_clk_cnt[1] & usb_clk_en) | (MAX10_CLK2_50 & ~usb_clk_en);
-
 reg [2:0] usb_state;
 
-assign GPIO[4:2] = usb_state[2:0];
+reg [5:0] usb_clk_cnt;
+assign usb_clk = (usb_clk_cnt[1] & (usb_state != 0)) | (MAX10_CLK2_50 & (usb_state == 0));
 
 always@ (posedge MAX10_CLK2_50) begin
-	if(usb_clk_en == 0) usb_clk_cnt <= 0;
+	if(usb_state == 0) usb_clk_cnt <= 0;
 	else begin
 		if(usb_clk_cnt > 48) begin 
 			usb_clk_cnt <= 0;
@@ -170,35 +167,77 @@ always@ (posedge MAX10_CLK2_50) begin
 end
 
 
-reg [7:0] preamble;
+/*
+	0001	OUT Token
+	1001	IN Token
+	0101	SOF Token
+	1101	SETUP Token
+Data
+	0011	DATA0
+	1011	DATA1
+	0111	DATA2
+	1111	MDATA
+Handshake
+	0010	ACK Handshake
+	1010	NAK Handshake
+	1110	STALL Handshake
+	0110	NYET (No Response Yet)
+Special
+	1100	PREamble
+	1100	ERR
+	1000	Split
+	0100	Ping
+*/
+
+reg[7:0] preamble;
+
+reg[7:0] pid;
+reg[2:0] pid_cnt;
+
+reg wait_in;
 
 always@ (posedge usb_clk) begin
 	if(DLY_RST == 1) begin
 		usb_state <= 0;
-		usb_clk_en <= 0;
 		preamble <= 0;
-	end else if (usb_clk_en == 0) begin
-		if(usb_data) usb_clk_en <= 1;
-	end else begin
+		wait_in <= 0;
+		
+	end else if (usb_state == 0) begin
+		
+		pid <= 0;
+		pid_cnt <= 0;
+		preamble <= 0;
+		
+		if(usb_data) usb_state <= 1;
+		
+	end else if (usb_state == 1) begin
+		
 		// fill preamble register
 		preamble <= {preamble[6:0], usb_data};
-		if(preamble == 8'b10101011) begin
-			usb_state <= 1;
-		end
+		if({preamble[6:0], usb_data} == 8'b10101011) usb_state <= 2;
 		
-		if(se0 == 1) begin
-			usb_state <= 0;
-			usb_clk_en <= 0;
-		end
+	end else if (usb_state == 2) begin
+	
+		pid_cnt <= pid_cnt + 1;
+		pid <= {pid[6:0], usb_data};
+		if(pid_cnt == 7) usb_state <= 3;
+		
+	end
+	
+	if(se0 == 1 && usb_state != 0) begin
+		if(wait_in == 1) wait_in <= 0;
+		else if(pid == 8'b10110001) wait_in <= 1;
+		
+		usb_state <= 0;
 	end
 end
 
-assign GPIO[5] = usb_data;
-assign GPIO[6] = se0;
-assign GPIO[7] = usb_clk;
-assign GPIO[8] = DLY_RST;
-assign GPIO[9] = usb_clk_en;
-assign GPIO[10] = usb_state[0];
+assign GPIO[5] = wait_in;
+assign GPIO[6] = usb_clk;
+assign GPIO[7] = DLY_RST;
+assign GPIO[8] = usb_state[0];
+assign GPIO[9] = usb_state[1];
+assign GPIO[10] = usb_state[2];
 
 assign LEDR = resrt_n
 	? {7'b0, usb_dm_in, usb_dp_in, user}
