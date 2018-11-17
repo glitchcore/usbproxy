@@ -116,7 +116,6 @@ wire	[15:0]  data_x;
 assign GPIO		  		=	36'hzzzzzzzz;
 
 assign resrt_n = KEY[0];
-assign user = KEY[1];
 
 reset_delay	u_reset_delay	(	
             .iRSTN(resrt_n),
@@ -232,6 +231,11 @@ always@ (posedge usb_clk) begin
 	end
 end
 
+assign dir = SW[0];
+assign out = SW[1];
+assign in = ARDUINO_IO[0];
+assign ARDUINO_IO[0] = dir ? out : 1'bz;
+
 assign GPIO[5] = wait_in;
 assign GPIO[6] = usb_clk;
 assign GPIO[7] = DLY_RST;
@@ -240,7 +244,7 @@ assign GPIO[9] = usb_state[1];
 assign GPIO[10] = usb_state[2];
 
 assign LEDR = resrt_n
-	? {7'b0, usb_dm_in, usb_dp_in, user}
+	? {7'b0, usb_dm_in, usb_dp_in, in}
 	: 10'h3ff
 ;
 
