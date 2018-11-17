@@ -188,46 +188,72 @@ Special
 	0100	Ping
 */
 
-reg[7:0] preamble;
-
+reg[7:0] usbreg;
 reg[7:0] pid;
-reg[2:0] pid_cnt;
+reg[2:0] usb_cnt;
 
 reg wait_in;
 
+wire[7:0] usbreg_next = usbreg | (usb_data << usb_cnt);
+
 always@ (posedge usb_clk) begin
 	if(DLY_RST == 1) begin
-		usb_state <= 0;
-		preamble <= 0;
+		usbreg <= 0;
+		usb_cnt <= 0;
 		wait_in <= 0;
 		
-	end else if (usb_state == 0) begin
-		
-		pid <= 0;
-		pid_cnt <= 0;
-		preamble <= 0;
-		
-		if(usb_data) usb_state <= 1;
+	end else if (usb_state == 0) begin		
+		if(usb_data) begin
+			usb_state <= 1;
+			
+			usb_cnt <= 0;
+			usbreg <= 0;
+		end;
 		
 	end else if (usb_state == 1) begin
 		
 		// fill preamble register
-		preamble <= {preamble[6:0], usb_data};
-		if({preamble[6:0], usb_data} == 8'b10101011) usb_state <= 2;
+		usbreg <= usbreg_next;
+		usb_cnt <= usb_cnt + 1;
+		
+		if(usb_cnt == 7 && usbreg_next == 8'b11010101) begin
+			usb_state <= 2;
+			
+			usb_cnt <= 0;
+			usbreg <= 0;
+		end;
 		
 	end else if (usb_state == 2) begin
-	
-		pid_cnt <= pid_cnt + 1;
-		pid <= {pid[6:0], usb_data};
-		if(pid_cnt == 7) usb_state <= 3;
 		
+		usbreg <= usbreg_next;
+		usb_cnt <= usb_cnt + 1;
+		
+		if(usb_cnt == 7) begin
+			usb_state <= 3;
+			
+			usb_cnt <= 0;
+			usbreg <= 0;
+			
+			pid <= usbreg_next;
+		end;
+		
+	end else if (usb_state == 3) begin
+		
+	end else if (usb_state == 4) begin
+		usb_cnt <= usb_cnt + 1;
+		if(usb_cnt > 1) begin
+			usb_state <= 0;
+			
+			if(wait_in == 1) wait_in <= 0;
+			else if(pid == 8'b10001101) wait_in <= 1;
+		end
 	end
 	
 	if(se0 == 1 && usb_state != 0) begin
-		if(wait_in == 1) wait_in <= 0;
-		else if(pid == 8'b10110001) wait_in <= 1;
+		usb_state <= 4;
 		
-		usb_state <= 0;
+		usb_cnt <= 0;
+		usbreg <= 0;
 	end
 end
 
@@ -242,6 +268,8 @@ assign GPIO[7] = DLY_RST;
 assign GPIO[8] = usb_state[0];
 assign GPIO[9] = usb_state[1];
 assign GPIO[10] = usb_state[2];
+
+assign GPIO[35:28] = usbreg_next;
 
 assign LEDR = resrt_n
 	? {7'b0, usb_dm_in, usb_dp_in, in}
