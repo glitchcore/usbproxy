@@ -4,9 +4,23 @@ module Usb_proxy (
 	output[13:0] debug
 );
 
-wire usb_data = ~host_dp & host_dm; // full-speed
-wire se0 = ~host_dp & ~host_dm;
+wire host_usb_data = ~host_dp & host_dm; // full-speed
+wire host_se0 = ~host_dp & ~host_dm;
 
+wire device_usb_data = ~device_dp & device_dm; // full-speed
+wire device_se0 = ~device_dp & ~device_dm;
+
+reg device_dir;
+reg host_dir;
+
+wire usb_data = (device_dir && host_dir) ? device_usb_data | host_usb_data :
+	(device_dir ? device_usb_data :
+	(host_dir ? host_usb_data : 1'b0));
+
+wire se0 = (device_dir && host_dir) ? device_se0 | host_se0 :
+	(device_dir ? device_se0 :
+	(host_dir ? host_se0 : 1'b0));
+	
 assign device_dm = 0;
 assign device_dp = 0;
 
@@ -32,8 +46,6 @@ reg[7:0] prev_pid;
 
 reg[2:0] usb_cnt;
 
-reg wait_in;
-
 wire[7:0] usbreg_next = usbreg | (usb_data << usb_cnt);
 
 enum bit[7:0] {
@@ -58,10 +70,12 @@ always@ (posedge usb_clk) begin
 	if(rst == 1) begin
 		usbreg <= 0;
 		usb_cnt <= 0;
-		wait_in <= 0;
+		device_dir <= 0;
+		host_dir <= 1;
 		
 	end else if (usb_state == 0) begin		
 		if(usb_data) begin
+			if(device_dir && ~device_usb_data) device_dir <= 0;
 			usb_state <= 1;
 			
 			usb_cnt <= 0;
@@ -103,9 +117,9 @@ always@ (posedge usb_clk) begin
 		if(usb_cnt > 1) begin
 			usb_state <= 0;
 			
-			if(wait_in == 1) wait_in <= 0;
+			if(device_dir == 1) device_dir <= 0;
 			else
-			if(pid == IN_Token || ((pid == DATA0 || pid == DATA1) && prev_pid != IN_Token)) wait_in <= 1;
+			if(pid == IN_Token || ((pid == DATA0 || pid == DATA1) && prev_pid != IN_Token)) device_dir <= 1;
 		end
 	end
 	
@@ -117,7 +131,7 @@ always@ (posedge usb_clk) begin
 	end
 end
 
-assign debug[0] = wait_in;
+assign debug[0] = device_dir;
 assign debug[1] = usb_clk;
 assign debug[2] = rst;
 assign debug[3] = usb_state[0];
