@@ -4,13 +4,16 @@ module Usb_proxy (
 	output[13:0] debug
 );
 
-assign usb_data = ~host_dp & host_dm; // full-speed
-assign se0 = ~host_dp & ~host_dm;
+wire usb_data = ~host_dp & host_dm; // full-speed
+wire se0 = ~host_dp & ~host_dm;
+
+assign device_dm = 0;
+assign device_dp = 0;
 
 reg [2:0] usb_state;
 
 reg [5:0] usb_clk_cnt;
-assign usb_clk = (usb_clk_cnt[1] & (usb_state != 0)) | (clk & (usb_state == 0));
+wire usb_clk = (usb_clk_cnt[1] & (usb_state != 0)) | (clk & (usb_state == 0));
 
 always@ (posedge clk) begin
 	if(usb_state == 0) usb_clk_cnt <= 0;
@@ -18,7 +21,7 @@ always@ (posedge clk) begin
 		if(usb_clk_cnt > 48) begin 
 			usb_clk_cnt <= 0;
 		end else begin
-			usb_clk_cnt <= usb_clk_cnt + 1;
+			usb_clk_cnt <= usb_clk_cnt + 6'd1;
 		end
 	end
 end
@@ -69,7 +72,7 @@ always@ (posedge usb_clk) begin
 		
 		// fill preamble register
 		usbreg <= usbreg_next;
-		usb_cnt <= usb_cnt + 1;
+		usb_cnt <= usb_cnt + 3'd1;
 		
 		if(usb_cnt == 7 && usbreg_next == 8'b11010101) begin
 			usb_state <= 2;
@@ -81,7 +84,7 @@ always@ (posedge usb_clk) begin
 	end else if (usb_state == 2) begin
 		
 		usbreg <= usbreg_next;
-		usb_cnt <= usb_cnt + 1;
+		usb_cnt <= usb_cnt + 3'd1;
 		
 		if(usb_cnt == 7) begin
 			usb_state <= 3;
@@ -96,7 +99,7 @@ always@ (posedge usb_clk) begin
 	end else if (usb_state == 3) begin
 		
 	end else if (usb_state == 4) begin
-		usb_cnt <= usb_cnt + 1;
+		usb_cnt <= usb_cnt + 3'd1;
 		if(usb_cnt > 1) begin
 			usb_state <= 0;
 			
