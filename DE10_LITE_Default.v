@@ -131,148 +131,41 @@ assign mSEG7_DIG = resrt_n
 	: {6{4'b1000}}
 ;
 
-SEG7_LUT_6 			u0	(	.oSEG0(HEX0),
-							   .oSEG1(HEX1),
-							   .oSEG2(HEX2),
-							   .oSEG3(HEX3),
-								.oSEG4(HEX4),
-								.oSEG5(HEX5),
-							   .iDIG(mSEG7_DIG) );
+SEG7_LUT_6 u0 (
+	.oSEG0(HEX0),
+	.oSEG1(HEX1),
+	.oSEG2(HEX2),
+	.oSEG3(HEX3),
+	.oSEG4(HEX4),
+	.oSEG5(HEX5),
+	.iDIG(mSEG7_DIG)
+);
 
-
-
-// USB playground
+wire[13:0] debug;
+						
+Usb_proxy usb (
+	.host_dm(GPIO[0]),
+	.host_dp(GPIO[1]),
+	// .device_dm,
+	// .device_dp,
+	.clk(MAX10_CLK1_50),
+	.rst(DLY_RST),
+	.debug(debug)
+);
 
 assign usb_dm_in = GPIO[0];
 assign usb_dp_in = GPIO[1];
 
-assign usb_data = ~usb_dp_in & usb_dm_in; // full-speed
-assign se0 = ~usb_dp_in & ~usb_dm_in;
-
-reg [2:0] usb_state;
-
-reg [5:0] usb_clk_cnt;
-assign usb_clk = (usb_clk_cnt[1] & (usb_state != 0)) | (MAX10_CLK2_50 & (usb_state == 0));
-
-always@ (posedge MAX10_CLK2_50) begin
-	if(usb_state == 0) usb_clk_cnt <= 0;
-	else begin
-		if(usb_clk_cnt > 48) begin 
-			usb_clk_cnt <= 0;
-		end else begin
-			usb_clk_cnt <= usb_clk_cnt + 1;
-		end
-	end
-end
-
-
-/*
-	0001	OUT Token
-	1001	IN Token
-	0101	SOF Token
-	1101	SETUP Token
-Data
-	0011	DATA0
-	1011	DATA1
-	0111	DATA2
-	1111	MDATA
-Handshake
-	0010	ACK Handshake
-	1010	NAK Handshake
-	1110	STALL Handshake
-	0110	NYET (No Response Yet)
-Special
-	1100	PREamble
-	1100	ERR
-	1000	Split
-	0100	Ping
-*/
-
-reg[7:0] usbreg;
-reg[7:0] pid;
-reg[2:0] usb_cnt;
-
-reg wait_in;
-
-wire[7:0] usbreg_next = usbreg | (usb_data << usb_cnt);
-
-always@ (posedge usb_clk) begin
-	if(DLY_RST == 1) begin
-		usbreg <= 0;
-		usb_cnt <= 0;
-		wait_in <= 0;
-		
-	end else if (usb_state == 0) begin		
-		if(usb_data) begin
-			usb_state <= 1;
-			
-			usb_cnt <= 0;
-			usbreg <= 0;
-		end;
-		
-	end else if (usb_state == 1) begin
-		
-		// fill preamble register
-		usbreg <= usbreg_next;
-		usb_cnt <= usb_cnt + 1;
-		
-		if(usb_cnt == 7 && usbreg_next == 8'b11010101) begin
-			usb_state <= 2;
-			
-			usb_cnt <= 0;
-			usbreg <= 0;
-		end;
-		
-	end else if (usb_state == 2) begin
-		
-		usbreg <= usbreg_next;
-		usb_cnt <= usb_cnt + 1;
-		
-		if(usb_cnt == 7) begin
-			usb_state <= 3;
-			
-			usb_cnt <= 0;
-			usbreg <= 0;
-			
-			pid <= usbreg_next;
-		end;
-		
-	end else if (usb_state == 3) begin
-		
-	end else if (usb_state == 4) begin
-		usb_cnt <= usb_cnt + 1;
-		if(usb_cnt > 1) begin
-			usb_state <= 0;
-			
-			if(wait_in == 1) wait_in <= 0;
-			else if(pid == 8'b10001101) wait_in <= 1;
-		end
-	end
-	
-	if(se0 == 1 && usb_state != 0) begin
-		usb_state <= 4;
-		
-		usb_cnt <= 0;
-		usbreg <= 0;
-	end
-end
+assign GPIO[10:5] = debug[5:0];
+assign GPIO[35:28] = debug[13:6];
 
 assign dir = SW[0];
 assign out = SW[1];
 assign in = ARDUINO_IO[0];
 assign ARDUINO_IO[0] = dir ? out : 1'bz;
 
-assign GPIO[5] = wait_in;
-assign GPIO[6] = usb_clk;
-assign GPIO[7] = DLY_RST;
-assign GPIO[8] = usb_state[0];
-assign GPIO[9] = usb_state[1];
-assign GPIO[10] = usb_state[2];
-
-assign GPIO[35:28] = usbreg_next;
-
 assign LEDR = resrt_n
-	? {7'b0, usb_dm_in, usb_dp_in, in}
+	? {9'b0, in}
 	: 10'h3ff
 ;
 
