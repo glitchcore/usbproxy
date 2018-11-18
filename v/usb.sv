@@ -21,8 +21,14 @@ wire se0 = (device_dir && host_dir) ? device_se0 | host_se0 :
 	(device_dir ? device_se0 :
 	(host_dir ? host_se0 : 1'b0));
 	
-assign device_dm = 0;
-assign device_dp = 0;
+wire usb_dp = ~se0 & ~usb_data;
+wire usb_dm = ~se0 & usb_data;
+
+assign device_dp = device_dir ? 1'bz : usb_dp;
+assign device_dm = device_dir ? 1'bz : usb_dm;
+
+assign host_dp = host_dir ? 1'bz : usb_dp;
+assign host_dm = host_dir ? 1'bz : usb_dm;
 
 reg [2:0] usb_state;
 
@@ -76,6 +82,8 @@ always@ (posedge usb_clk) begin
 	end else if (usb_state == 0) begin		
 		if(usb_data) begin
 			if(device_dir && ~device_usb_data) device_dir <= 0;
+			if(device_dir && device_usb_data) host_dir <= 0;
+			
 			usb_state <= 1;
 			
 			usb_cnt <= 0;
@@ -120,6 +128,8 @@ always@ (posedge usb_clk) begin
 			if(device_dir == 1) device_dir <= 0;
 			else
 			if(pid == IN_Token || ((pid == DATA0 || pid == DATA1) && prev_pid != IN_Token)) device_dir <= 1;
+			
+			host_dir <= 1;
 		end
 	end
 	
@@ -131,9 +141,9 @@ always@ (posedge usb_clk) begin
 	end
 end
 
-assign debug[0] = device_dir;
-assign debug[1] = usb_clk;
-assign debug[2] = rst;
+assign debug[0] = usb_clk;
+assign debug[1] = device_dir;
+assign debug[2] = host_dir;
 assign debug[3] = usb_state[0];
 assign debug[4] = usb_state[1];
 assign debug[5] = usb_state[2];

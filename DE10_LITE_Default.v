@@ -152,8 +152,8 @@ Usb_proxy usb (
 	.host_dm(GPIO[0]),
 	.host_dp(GPIO[1]),
 	
-	.device_dm(),
-	.device_dp(),
+	.device_dm(GPIO[2]),
+	.device_dp(GPIO[3]),
 	
 	.clk(MAX10_CLK1_50),
 	.rst(DLY_RST),
