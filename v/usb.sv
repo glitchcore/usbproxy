@@ -19,7 +19,7 @@ enum bit[7:0] {
 module Usb_proxy (
 	inout host_dm, host_dp, device_dm, device_dp,
 	input clk, rst, is_fs, proxy_en,
-	output[13:0] debug,
+	output[3:0] debug,
 	output reg[63:0] data,
 	output reg[2:0] usb_state,
 	output reg[7:0] pid,
@@ -165,15 +165,6 @@ always@ (posedge usb_clk) begin
 	end
 end
 
-assign debug[0] = usb_data;
-assign debug[1] = se0;
-assign debug[2] = 0;
-assign debug[3] = device_dir;
-assign debug[4] = host_dir;
-assign debug[5] = usb_state[0];
-assign debug[6] = usb_state[1];
-assign debug[7] = usb_state[2];
-
-assign debug[13:8] = {6{1'b0}};
+assign debug = 0;
 
 endmodule

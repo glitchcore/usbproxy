@@ -136,12 +136,16 @@ assign LEDR = resrt_n
 
 
 
-wire[63:0] debug;
+wire[3:0] debug;
 wire[63:0] data;
 wire[2:0] usb_state;
 wire[7:0] pid;
 wire host_dir;
-	
+
+wire[7:0] modifier;
+wire[7:0] keycode;
+wire[3:0] leds;
+
 Usb_proxy usb (
 	.host_dm(GPIO[0]),
 	.host_dp(GPIO[1]),
@@ -172,15 +176,21 @@ Keyboard_sniffer sniffer (
 	.pid(pid),
 	.host_dir(host_dir),
 	
+	.modifier(modifier),
+	.keycode(keycode),
+	.leds(leds),
+	
 	.debug(debug)
 );
 
 assign GPIO[6:4] = usb_state;
 assign GPIO[7] = host_dir;
-assign GPIO[35:8] = {28{1'hz}}; 
+assign GPIO[8] = debug[0];
+
+assign GPIO[35:8] = {28{1'hz}};
 
 assign mSEG7_DIG = resrt_n // 
-	? {debug[7:0], debug[23:16], 8'b0}
+	? {modifier, keycode, leds, 4'b0}
 	: {6{4'b1000}}     		
 ;
 
