@@ -106,7 +106,6 @@ assign GSENSOR_SDO = 1'b0;
 
 wire DLY_RST;
 
-reg  [31:0]	cont;
 wire [23:0]	mSEG7_DIG;
 wire resrt_n = KEY[0];
 
@@ -115,15 +114,6 @@ reset_delay	u_reset_delay	(
 	.iCLK(MAX10_CLK1_50),
 	.oRST(DLY_RST)
 );
-
-always@(posedge MAX10_CLK2_50) begin
-	cont <= cont + 2;
-end
-
-assign mSEG7_DIG = resrt_n
-	? {{5{4'b1111}}, cont[27:24]}
-	: {6{4'b1000}}
-;
 
 SEG7_LUT_6 u0 (
 	.oSEG0(HEX0),
@@ -147,7 +137,8 @@ assign LEDR = resrt_n
 
 
 wire[13:0] debug;
-						
+wire[63:0] data;
+
 Usb_proxy usb (
 	.host_dm(GPIO[0]),
 	.host_dp(GPIO[1]),
@@ -155,15 +146,26 @@ Usb_proxy usb (
 	.device_dm(GPIO[2]),
 	.device_dp(GPIO[3]),
 	
+	.proxy_en(SW[2]),
+	.is_fs(SW[3]),
+	
 	.clk(MAX10_CLK1_50),
 	.rst(DLY_RST),
+	
+	.data(data),
 	
 	.debug(debug)
 );
 
-assign GPIO[4:0] = {5{1'hz}};
-assign GPIO[10:5] = debug[5:0];
-assign GPIO[27:11] = {17{1'hz}};
+assign GPIO[3:0] = {5{1'hz}};
+assign GPIO[11:4] = debug[7:0];
+assign GPIO[27:12] = {16{1'hz}};
 assign GPIO[35:28] = debug[13:6];
+
+
+assign mSEG7_DIG = resrt_n
+	? {data[47:40], data[31:24], data[15:8]}
+	: {6{4'b1000}}
+;
 
 endmodule
