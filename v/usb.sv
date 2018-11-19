@@ -73,6 +73,7 @@ end
 reg[7:0] usbreg;
 reg[7:0] pid;
 reg[7:0] prev_pid;
+reg data_flag;
 
 reg nrzi_prev;
 
@@ -105,6 +106,7 @@ always@ (posedge usb_clk) begin
 		_device_dir <= 0;
 		_host_dir <= 1;
 		nrzi_prev <= 0;
+		data_flag <= 0;
 		
 	end else if (usb_state == 0) begin		
 		if(usb_data) begin
@@ -148,13 +150,16 @@ always@ (posedge usb_clk) begin
 			nrzi_prev <= usb_data;
 			if(usbreg_next == DATA0 || usbreg_next == DATA1) begin
 				data <= 0;
-			end
+				data_flag <= 1;
+			end else begin
+				data_flag <= 0;
+			end;
 		end;
 		
 	end else if (usb_state == 3) begin
 		if(pid == DATA0 || pid == DATA1) begin
 			nrzi_prev <= usb_data;
-			if(~(nrzi_prev ^ usb_data)) data <= data | 1 << (63 - usb_cnt);
+			if(~(nrzi_prev ^ usb_data)) data <= data | 1 << usb_cnt;
 			if(usb_cnt < 64) usb_cnt <= usb_cnt + 8'd1;
 		end
 		
@@ -181,7 +186,7 @@ end
 
 assign debug[0] = usb_data;
 assign debug[1] = se0;
-assign debug[2] = device_usb_data;
+assign debug[2] = data_flag;
 assign debug[3] = device_dir;
 assign debug[4] = host_dir;
 assign debug[5] = usb_state[0];

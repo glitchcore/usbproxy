@@ -162,10 +162,9 @@ assign GPIO[11:4] = debug[7:0];
 assign GPIO[27:12] = {16{1'hz}};
 assign GPIO[35:28] = debug[13:6];
 
-
-assign mSEG7_DIG = resrt_n
-	? {data[47:40], data[31:24], data[15:8]}
-	: {6{4'b1000}}
+assign mSEG7_DIG = resrt_n // 
+	? {data[7:0], data[23:16], 8'b0}
+	: {6{4'b1000}}     		
 ;
 
 endmodule
