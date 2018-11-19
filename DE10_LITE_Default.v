@@ -136,9 +136,12 @@ assign LEDR = resrt_n
 
 
 
-wire[13:0] debug;
+wire[63:0] debug;
 wire[63:0] data;
-
+wire[2:0] usb_state;
+wire[7:0] pid;
+wire host_dir;
+	
 Usb_proxy usb (
 	.host_dm(GPIO[0]),
 	.host_dp(GPIO[1]),
@@ -146,24 +149,38 @@ Usb_proxy usb (
 	.device_dm(GPIO[2]),
 	.device_dp(GPIO[3]),
 	
-	.proxy_en(SW[2]),
-	.is_fs(SW[3]),
+	.proxy_en(SW[0]),
+	.is_fs(SW[1]),
 	
 	.clk(MAX10_CLK1_50),
 	.rst(DLY_RST),
 	
 	.data(data),
+	.usb_state(usb_state),
+	.pid(pid),
+	.host_dir(host_dir),
+	
+	.debug()
+);
+
+Keyboard_sniffer sniffer (
+	.clk(MAX10_CLK1_50),
+	.rst(DLY_RST),
+	
+	.data(data),
+	.usb_state(usb_state),
+	.pid(pid),
+	.host_dir(host_dir),
 	
 	.debug(debug)
 );
 
-assign GPIO[3:0] = {5{1'hz}};
-assign GPIO[11:4] = debug[7:0];
-assign GPIO[27:12] = {16{1'hz}};
-assign GPIO[35:28] = debug[13:6];
+assign GPIO[6:4] = usb_state;
+assign GPIO[7] = host_dir;
+assign GPIO[35:8] = {28{1'hz}}; 
 
 assign mSEG7_DIG = resrt_n // 
-	? {data[7:0], data[23:16], 8'b0}
+	? {debug[7:0], debug[23:16], 8'b0}
 	: {6{4'b1000}}     		
 ;
 

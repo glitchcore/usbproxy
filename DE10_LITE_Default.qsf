@@ -447,6 +447,7 @@ set_global_assignment -name OUTPUT_IO_TIMING_FAR_END_VMEAS "HALF SIGNAL SWING" -
 set_global_assignment -name STRATIX_DEVICE_IO_STANDARD "2.5 V"
 set_global_assignment -name ENABLE_SIGNALTAP ON
 set_global_assignment -name USE_SIGNALTAP_FILE stp2.stp
+set_global_assignment -name SYSTEMVERILOG_FILE v/sniffer.sv
 set_global_assignment -name VERILOG_FILE DE10_LITE_Default.v
 set_global_assignment -name SYSTEMVERILOG_FILE v/usb.sv
 set_global_assignment -name VERILOG_FILE v/SEG7_LUT_6.v

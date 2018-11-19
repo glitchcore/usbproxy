@@ -1,31 +1,42 @@
+enum bit[7:0] {
+	OUT_Token = 8'b11110101,
+	IN_Token = 8'b10001101,
+	SOF_Token = 8'b11001001,
+	SETUP_Token = 8'b10110001,
+	DATA0 = 8'b11101011,
+	DATA1 = 8'b10010011,
+	DATA2 = 8'b11010111,
+	MDATA = 8'b10101111,
+	ACK = 8'b11100100,
+	NAK = 8'b10011100,
+	STALL = 8'b10100000,
+	NYET = 8'b11011000,
+	ERR = 8'b10111110,
+	Split = 8'b10000010,
+	Ping = 8'b11000110
+} PID;
+
 module Usb_proxy (
-	inout host_dm, host_dp, device_dm, device_dp, proxy_en, is_fs,
-	input clk, rst,
+	inout host_dm, host_dp, device_dm, device_dp,
+	input clk, rst, is_fs, proxy_en,
 	output[13:0] debug,
-	output reg[63:0] data
+	output reg[63:0] data,
+	output reg[2:0] usb_state,
+	output reg[7:0] pid,
+	output host_dir
 );
 
-/*
-reg[63:0] r_data;
-wire[63:0] _r_data = r_data;
-
-integer i;
-initial begin
-	for(i = 0; i < 64; i = i + 1) assign data[i] = _r_data[63 - i];
-end
-*/
-
-wire host_usb_data = is_fs ? (~host_dp & host_dm) : (host_dp & ~host_dm); // full-speed
+wire host_usb_data = is_fs ? (~host_dp & host_dm) : (host_dp & ~host_dm);
 wire host_se0 = ~host_dp & ~host_dm;
 
-wire device_usb_data = is_fs ? (~device_dp & device_dm) : (device_dp & ~device_dm); // full-speed
+wire device_usb_data = is_fs ? (~device_dp & device_dm) : (device_dp & ~device_dm);
 wire device_se0 = ~device_dp & ~device_dm;
 
 reg _device_dir;
 reg _host_dir;
 
 wire device_dir = proxy_en ? _device_dir : 1'b0;
-wire host_dir = proxy_en ? _host_dir : 1'b1;
+assign host_dir = proxy_en ? _host_dir : 1'b1;
 
 wire usb_data = (device_dir && host_dir) ? device_usb_data | host_usb_data :
 	(device_dir ? device_usb_data :
@@ -43,8 +54,6 @@ assign device_dm = device_dir ? 1'bz : usb_dm;
 
 assign host_dp = host_dir ? 1'bz : usb_dp;
 assign host_dm = host_dir ? 1'bz : usb_dm;
-
-reg [2:0] usb_state;
 
 reg [5:0] usb_clk_cnt;
 
@@ -71,33 +80,13 @@ always@ (posedge clk) begin
 end
 
 reg[7:0] usbreg;
-reg[7:0] pid;
 reg[7:0] prev_pid;
-reg data_flag;
 
 reg nrzi_prev;
 
 reg[7:0] usb_cnt;
 
 wire[7:0] usbreg_next = usbreg | (usb_data << usb_cnt);
-
-enum bit[7:0] {
-	OUT_Token = 8'b11110101,
-	IN_Token = 8'b10001101,
-	SOF_Token = 8'b11001001,
-	SETUP_Token = 8'b10110001,
-	DATA0 = 8'b11101011,
-	DATA1 = 8'b10010011,
-	DATA2 = 8'b11010111,
-	MDATA = 8'b10101111,
-	ACK = 8'b11100100,
-	NAK = 8'b10011100,
-	STALL = 8'b10100000,
-	NYET = 8'b11011000,
-	ERR = 8'b10111110,
-	Split = 8'b10000010,
-	Ping = 8'b11000110
-} PID;
 
 always@ (posedge usb_clk) begin
 	if(rst == 1) begin
@@ -106,7 +95,6 @@ always@ (posedge usb_clk) begin
 		_device_dir <= 0;
 		_host_dir <= 1;
 		nrzi_prev <= 0;
-		data_flag <= 0;
 		
 	end else if (usb_state == 0) begin		
 		if(usb_data) begin
@@ -148,20 +136,13 @@ always@ (posedge usb_clk) begin
 			prev_pid <= pid;
 			
 			nrzi_prev <= usb_data;
-			if(usbreg_next == DATA0 || usbreg_next == DATA1) begin
-				data <= 0;
-				data_flag <= 1;
-			end else begin
-				data_flag <= 0;
-			end;
+			data <= 0;
 		end;
 		
 	end else if (usb_state == 3) begin
-		if(pid == DATA0 || pid == DATA1) begin
-			nrzi_prev <= usb_data;
-			if(~(nrzi_prev ^ usb_data)) data <= data | 1 << usb_cnt;
-			if(usb_cnt < 64) usb_cnt <= usb_cnt + 8'd1;
-		end
+		nrzi_prev <= usb_data;
+		if(~(nrzi_prev ^ usb_data)) data <= data | 1 << usb_cnt;
+		if(usb_cnt < 64) usb_cnt <= usb_cnt + 8'd1;
 		
 	end else if (usb_state == 4) begin
 		usb_cnt <= usb_cnt + 8'd1;
@@ -186,7 +167,7 @@ end
 
 assign debug[0] = usb_data;
 assign debug[1] = se0;
-assign debug[2] = data_flag;
+assign debug[2] = 0;
 assign debug[3] = device_dir;
 assign debug[4] = host_dir;
 assign debug[5] = usb_state[0];
