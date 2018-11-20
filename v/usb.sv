@@ -96,8 +96,13 @@ reg[7:0] usb_cnt;
 wire[7:0] usbreg_next = usbreg | (in_usb_data << usb_cnt);
 
 always@ (posedge usb_clk) begin
-	own_usb_data <= in_usb_data;
-	own_se0 <= in_se0;
+	if(usb_state == 3) begin
+		own_usb_data <= (own_data & (1 << usb_cnt) != 0) ? 1'b1 : 1'b0;
+		own_se0 <= in_se0;
+	end else begin
+		own_usb_data <= in_usb_data;
+		own_se0 <= in_se0;
+	end
 	
 	if(rst == 1) begin
 		usbreg <= 0;

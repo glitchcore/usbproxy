@@ -11,11 +11,18 @@ module Keyboard_sniffer(
 	output reg[3:0] leds,
 	
 	output owned,
-	output reg[63:0] own_data,
+	output [63:0] own_data,
+	
+	input led_ctrl,
 	
 	output[3:0] debug
 );
 
+wire[63:0] led_on = {25'b0100000001110101001010100, 39'b0};
+wire[63:0] led_off = {25'b0010000000110101010101010, 39'b0};
+
+assign own_data = led_ctrl ? led_on : led_off;
+	
 reg[63:0] keyboard_data;
 reg[7:0] prev_pid;
 

@@ -179,7 +179,7 @@ Usb_proxy usb (
 	.host_dir(host_dir),
 	
 	.own_data(own_data),
-	.owned(owned),
+	.owned(SW[2] ? owned : 0),
 	
 	.debug(usb_debug)
 );
@@ -199,6 +199,8 @@ Keyboard_sniffer sniffer (
 	
 	.own_data(own_data),
 	.owned(owned),
+	
+	.led_ctrl(SW[3]),
 	
 	.debug(debug)
 );
