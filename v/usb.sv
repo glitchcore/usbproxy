@@ -80,7 +80,7 @@ reg prev_clk_usb_data;
 always@ (posedge clk) begin
 	prev_clk_usb_data <= in_usb_data;
 	
-	if(prev_clk_usb_data ^ in_usb_data) usb_clk_cnt <= 5'd12;
+	if(prev_clk_usb_data ^ in_usb_data) usb_clk_cnt <= is_fs ? 5'd8 : 5'd12;
 	else usb_clk_cnt <= usb_clk_cnt + 5'd1;
 	
 	// proxy_usb_data <= in_usb_data;
