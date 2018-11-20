@@ -42,12 +42,18 @@ reg _host_dir;
 wire device_dir = proxy_en ? _device_dir : 1'b0;
 assign host_dir = proxy_en ? _host_dir : 1'b1;
 
-reg usb_data;
+reg proxy_usb_data;
+reg own_usb_data;
+wire usb_data = owned ? own_usb_data : in_usb_data;
+
 wire in_usb_data = (device_dir && host_dir) ? device_usb_data | host_usb_data :
 	(device_dir ? device_usb_data :
 	(host_dir ? host_usb_data : 1'b0));
 
-reg se0;
+reg proxy_se0;
+reg own_se0;
+wire se0 = owned ? own_se0 : in_se0;
+
 wire in_se0 = (device_dir && host_dir) ? device_se0 | host_se0 :
 	(device_dir ? device_se0 :
 	(host_dir ? host_se0 : 1'b0));
@@ -68,12 +74,17 @@ wire usb_clk_ls = usb_clk_cnt[4];
 
 wire usb_clk = (usb_state == 0) ? clk : (is_fs ? usb_clk_fs : usb_clk_ls);
 
-always@ (posedge clk) begin	
-	if(usb_state == 0) usb_clk_cnt <= 5'd10;
+reg prev_clk_usb_data;
+
+
+always@ (posedge clk) begin
+	prev_clk_usb_data <= in_usb_data;
+	
+	if(prev_clk_usb_data ^ in_usb_data) usb_clk_cnt <= 5'd12;
 	else usb_clk_cnt <= usb_clk_cnt + 5'd1;
 	
-	usb_data <= in_usb_data;
-	se0 <= in_se0;
+	// proxy_usb_data <= in_usb_data;
+	// proxy_se0 <= in_se0;
 end
 
 reg[7:0] usbreg;
@@ -85,6 +96,8 @@ reg[7:0] usb_cnt;
 wire[7:0] usbreg_next = usbreg | (in_usb_data << usb_cnt);
 
 always@ (posedge usb_clk) begin
+	own_usb_data <= in_usb_data;
+	own_se0 <= in_se0;
 	
 	if(rst == 1) begin
 		usbreg <= 0;
@@ -139,7 +152,7 @@ always@ (posedge usb_clk) begin
 			pid <= usbreg_next;
 			prev_pid <= pid;
 			
-			nrzi_prev <= usb_data;
+			nrzi_prev <= in_usb_data;
 			data <= 0;
 		end;
 		

@@ -53,7 +53,7 @@ always@ (posedge clk) begin
 	end
 end
 
-assign debug[0] = led_data;
+assign debug[0] = owned;
 assign debug[1] = caps_num_pressed;
 assign debug[2] = (prev_pid == IN_Token);
 assign debug[3] = 1'b0;
