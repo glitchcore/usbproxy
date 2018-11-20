@@ -23,7 +23,11 @@ module Usb_proxy (
 	output reg[63:0] data,
 	output reg[2:0] usb_state,
 	output reg[7:0] pid,
-	output host_dir
+	output reg[7:0] prev_pid,
+	output host_dir,
+	
+	input owned,
+	input[63:0] own_data
 );
 
 wire host_usb_data = is_fs ? (~host_dp & host_dm) : (host_dp & ~host_dm);
@@ -38,11 +42,13 @@ reg _host_dir;
 wire device_dir = proxy_en ? _device_dir : 1'b0;
 assign host_dir = proxy_en ? _host_dir : 1'b1;
 
-wire usb_data = (device_dir && host_dir) ? device_usb_data | host_usb_data :
+reg usb_data;
+wire in_usb_data = (device_dir && host_dir) ? device_usb_data | host_usb_data :
 	(device_dir ? device_usb_data :
 	(host_dir ? host_usb_data : 1'b0));
 
-wire se0 = (device_dir && host_dir) ? device_se0 | host_se0 :
+reg se0;
+wire in_se0 = (device_dir && host_dir) ? device_se0 | host_se0 :
 	(device_dir ? device_se0 :
 	(host_dir ? host_se0 : 1'b0));
 	
@@ -55,40 +61,31 @@ assign device_dm = device_dir ? 1'bz : usb_dm;
 assign host_dp = host_dir ? 1'bz : usb_dp;
 assign host_dm = host_dir ? 1'bz : usb_dm;
 
-reg [5:0] usb_clk_cnt;
-
-reg [3:0] usb_clk_ls_cnt;
+reg [4:0] usb_clk_cnt;
 
 wire usb_clk_fs = usb_clk_cnt[1];
-wire usb_clk_ls= usb_clk_ls_cnt[3];
+wire usb_clk_ls = usb_clk_cnt[4];
 
 wire usb_clk = (usb_state == 0) ? clk : (is_fs ? usb_clk_fs : usb_clk_ls);
 
-always@ (posedge clk) begin
-	if(usb_state == 0) begin
-		usb_clk_cnt <= 0;
-		usb_clk_ls_cnt <= 0;
-	end else begin
-		if(usb_clk_cnt > 48) begin 
-			usb_clk_cnt <= 0;
-		end else begin
-			usb_clk_cnt <= usb_clk_cnt + 6'd1;
-		end
-	end
+always@ (posedge clk) begin	
+	if(usb_state == 0) usb_clk_cnt <= 5'd10;
+	else usb_clk_cnt <= usb_clk_cnt + 5'd1;
 	
-	if(usb_clk_cnt[1]) usb_clk_ls_cnt <= usb_clk_ls_cnt + 4'd1;
+	usb_data <= in_usb_data;
+	se0 <= in_se0;
 end
 
 reg[7:0] usbreg;
-reg[7:0] prev_pid;
 
 reg nrzi_prev;
 
 reg[7:0] usb_cnt;
 
-wire[7:0] usbreg_next = usbreg | (usb_data << usb_cnt);
+wire[7:0] usbreg_next = usbreg | (in_usb_data << usb_cnt);
 
 always@ (posedge usb_clk) begin
+	
 	if(rst == 1) begin
 		usbreg <= 0;
 		usb_cnt <= 0;
@@ -97,7 +94,7 @@ always@ (posedge usb_clk) begin
 		nrzi_prev <= 0;
 		
 	end else if (usb_state == 0) begin		
-		if(usb_data) begin
+		if(in_usb_data) begin
 			if(device_dir && ~device_usb_data) _device_dir <= 0;
 			if(device_dir && device_usb_data) _host_dir <= 0;
 			
@@ -114,12 +111,19 @@ always@ (posedge usb_clk) begin
 		usbreg <= usbreg_next;
 		usb_cnt <= usb_cnt + 8'd1;
 		
-		if(usb_cnt == 7 && usbreg_next == 8'b11010101) begin
-			usb_state <= 2;
-			
-			usb_cnt <= 0;
-			usbreg <= 0;
-		end;
+		if(usb_cnt == 7) begin
+			if(usbreg_next == 8'b11010101) begin
+				usb_state <= 2;
+				
+				usb_cnt <= 0;
+				usbreg <= 0;
+			end else begin
+				usb_state <= 0;
+				
+				usb_cnt <= 0;
+				usbreg <= 0;
+			end
+		end
 		
 	end else if (usb_state == 2) begin
 		
@@ -140,8 +144,8 @@ always@ (posedge usb_clk) begin
 		end;
 		
 	end else if (usb_state == 3) begin
-		nrzi_prev <= usb_data;
-		if(~(nrzi_prev ^ usb_data)) data <= data | 1 << usb_cnt;
+		nrzi_prev <= in_usb_data;
+		if(~(nrzi_prev ^ in_usb_data)) data <= data | 1 << usb_cnt;
 		if(usb_cnt < 64) usb_cnt <= usb_cnt + 8'd1;
 		
 	end else if (usb_state == 4) begin
@@ -165,6 +169,8 @@ always@ (posedge usb_clk) begin
 	end
 end
 
-assign debug = 0;
+assign debug[0] = usb_clk;
+assign debug[1] = in_usb_data;
+assign debug[3:2] = 2'b0;
 
 endmodule

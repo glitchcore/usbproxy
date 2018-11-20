@@ -137,7 +137,12 @@ assign LEDR = resrt_n
 
 
 wire[3:0] debug;
+wire[3:0] usb_debug;
+
 wire[63:0] data;
+wire[63:0] own_data;
+wire owned;
+
 wire[2:0] usb_state;
 wire[7:0] pid;
 wire host_dir;
@@ -145,6 +150,15 @@ wire host_dir;
 wire[7:0] modifier;
 wire[7:0] keycode;
 wire[3:0] leds;
+
+wire CLK_48;
+
+
+wizard pll(
+	.clk_in_clk(MAX10_CLK2_50),
+	.rst_reset(DLY_RST),
+	.clk_out_clk(CLK_48)
+);
 
 Usb_proxy usb (
 	.host_dm(GPIO[0]),
@@ -156,7 +170,7 @@ Usb_proxy usb (
 	.proxy_en(SW[0]),
 	.is_fs(SW[1]),
 	
-	.clk(MAX10_CLK1_50),
+	.clk(CLK_48),
 	.rst(DLY_RST),
 	
 	.data(data),
@@ -164,11 +178,14 @@ Usb_proxy usb (
 	.pid(pid),
 	.host_dir(host_dir),
 	
-	.debug()
+	.own_data(own_data),
+	.owned(owned),
+	
+	.debug(usb_debug)
 );
 
 Keyboard_sniffer sniffer (
-	.clk(MAX10_CLK1_50),
+	.clk(CLK_48),
 	.rst(DLY_RST),
 	
 	.data(data),
@@ -180,14 +197,20 @@ Keyboard_sniffer sniffer (
 	.keycode(keycode),
 	.leds(leds),
 	
+	.own_data(own_data),
+	.owned(owned),
+	
 	.debug(debug)
 );
 
 assign GPIO[6:4] = usb_state;
 assign GPIO[7] = host_dir;
-assign GPIO[8] = debug[0];
+// assign GPIO[10:8] = debug[2:0];
+assign GPIO[9:8] = debug[1:0];
+assign GPIO[10] = usb_debug[1];
+assign GPIO[11] = usb_debug[0];
 
-assign GPIO[35:8] = {28{1'hz}};
+assign GPIO[35:12] = {24{1'hz}};
 
 assign mSEG7_DIG = resrt_n // 
 	? {modifier, keycode, leds, 4'b0}
